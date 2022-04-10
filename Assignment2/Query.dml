@@ -1,0 +1,206 @@
+-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+-- CSC 343H5S: Lab 3
+-- Winter 2022 | University of Toronto Mississauga
+-- SKELETON FILE FOR SQL
+-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+-- ***** DO NOT CHANGE THE FORMAT *****
+-- ***** YOU MAY ONLY ADD WHERE *****
+-- *****  IT INDICATES TO DO SO *****
+
+-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+-- PREAMBLE
+-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+-- Parter 1's Name: [Sharon Alex]
+-- Partner 1's Student Number: [1003854206]
+-- Partner 1's UtorID: [alexshar]
+
+-- Parter 2's Name: [Daleep Singh]
+-- Partner 2's Student Number: [1001699432]
+-- Partner 2's UtorID: [singhd32]
+
+-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+-- BEGIN
+-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+-- ++++++++++++++++++++
+--  Q1
+-- ++++++++++++++++++++
+
+SELECT COUNT(SIN) AS totalSeniors
+FROM Person 
+WHERE (DATE_PART('year', '2019-11-14'::date)-DATE_PART('year', person.DateOfBirth::date)) >= 65; 
+
+-- ++++++++++++++++++++
+--  Q2
+-- ++++++++++++++++++++
+
+SELECT COUNT(p.SIN) AS taken
+FROM Person p, Take t, Ship s
+WHERE t.sin =  p.sin and s.shipid  = t.shipid and p.Occupation = 'student' and
+s.RouteID = 1 and t.date = '2019-09-04' ;
+
+-- ++++++++++++++++++++
+--  Q3.A
+-- ++++++++++++++++++++
+
+SELECT s.shipid, s.age, s.manufacturer,
+FROM Ship s
+WHERE s.advertisingrevenue > 10000;
+
+-- ++++++++++++++++++++
+--  Q3.B
+-- ++++++++++++++++++++
+
+SELECT p.FirstName, p.LastName, pi.yearsofservice, s.shipid
+FROM Person p, Pilot pi, Operate o, Ship s
+WHERE p.sin =  pi.sin and pi.sin = o.sin and o.shipid = s.shipid
+and s.advertisingrevenue > 10000;
+
+-- ++++++++++++++++++++
+--  Q3.C
+-- ++++++++++++++++++++
+
+SELECT s.RouteID, SUM(s.advertisingrevenue) AS TotalRevenue
+FROM Ship s
+GROUP BY s.RouteID
+ORDER BY TotalRevenue DESC;
+
+-- ++++++++++++++++++++
+--  Q4.A
+-- ++++++++++++++++++++
+
+SELECT p.type, SUM(f.fee) AS revenue
+FROM Passenger p Natural Join Fare f
+GROUP BY p.type;
+
+-- ++++++++++++++++++++
+--  Q4.B
+-- ++++++++++++++++++++
+
+SELECT p.type, SUM(f.fee) AS revenue
+FROM Passenger p Natural Join Fare f
+GROUP BY p.type
+HAVING SUM(f.fee) > 500;
+
+-- ++++++++++++++++++++
+--  Q4.C
+-- ++++++++++++++++++++
+
+SELECT type, count*fee as revenue from (
+SELECT type, count(sin) FROM passenger WHERE sin in
+        (SELECT sin FROM take WHERE date = '2019-09-01')
+GROUP BY type) J
+NATURAL JOIN fare
+ORDER BY count*fee DESC
+LIMIT 1;
+
+-- ++++++++++++++++++++
+--  Q5.A
+-- ++++++++++++++++++++
+
+SELECT p.FirstName, p.LastName, pi.sin, (DATE_PART('year', '2019-11-14'::date)-DATE_PART('year', p.DateOfBirth::date)) AS Age
+FROM Person p Natural Join Pilot pi Natural Join Infraction i
+WHERE i.demerit < 3;
+
+-- ++++++++++++++++++++
+--  Q5.B
+-- ++++++++++++++++++++
+
+SELECT p.sin, SUM(i.demerit) AS totaldemerit, SUM(i.fine) AS totalFine
+FROM Pilot p Natural Join Infraction i
+WHERE i.demerit >= 2
+GROUP BY p.sin 
+ORDER BY totaldemerit DESC, totalFine DESC;
+
+-- ++++++++++++++++++++
+--  Q6.A
+-- ++++++++++++++++++++
+
+SELECT shipid, manufacturer FROM ship
+ORDER BY shipid DESC;
+
+-- ++++++++++++++++++++
+--  Q6.B
+-- ++++++++++++++++++++
+
+SELECT routeid, count(*) as "number of times" FROM schedule
+WHERE date = '2019-09-07'
+GROUP BY routeid
+ORDER BY count(*) DESC
+LIMIT 1;
+
+-- ++++++++++++++++++++
+--  Q6.C
+-- ++++++++++++++++++++
+
+SELECT date, count(routeid) as "trips taken"  FROM schedule
+GROUP BY date
+ORDER BY count(routeid) DESC
+LIMIT 1;
+
+-- ++++++++++++++++++++
+--  Q7.A
+-- ++++++++++++++++++++
+
+SELECT occupation,count(*) as "occurences"  FROM person WHERE sin IN (
+        SELECT sin FROM take WHERE shipid in (
+                SELECT shipid FROM ship WHERE routeid IN (
+                        SELECT distinct(routeid) FROM schedule
+                        WHERE stopid in 
+                                (SELECT stopid FROM stop
+                                WHERE siname IN ('Jedi Central Library','Yoda Library','Chewbacca Library'))
+                                AND date IN ('2019-09-05','2019-09-06'))))
+GROUP BY occupation;
+
+-- ++++++++++++++++++++
+--  Q7.B
+-- ++++++++++++++++++++
+CREATE OR REPLACE VIEW library_goers AS (
+
+        SELECT occupation,date,count(*) FROM person INNER JOIN take on person.sin IN (     
+                SELECT sin FROM take WHERE shipid in (
+                        SELECT shipid FROM ship WHERE routeid IN (
+                                SELECT distinct(routeid) FROM schedule
+                                WHERE stopid in
+                                        (SELECT stopid FROM stop
+                                        WHERE siname IN ('Jedi Central Library','Yoda Library','Chewbacca Library'))
+                                        AND date IN ('2019-09-05','2019-09-06'))))
+        WHERE date IN ('2019-09-05','2019-09-06')
+        GROUP BY occupation,date);
+
+CREATE OR REPLACE VIEW most_ppl AS (
+        SELECT date, max(count) as mximum FROM library_goers
+        GROUP BY date
+        );
+
+SELECT occupation,date from library_goers where count IN (select most_ppl.mximum from most_ppl) LIMIT 2;
+
+-- ++++++++++++++++++++
+--  Q8
+-- ++++++++++++++++++++
+SELECT firstname, lastname, sin FROM person where sin IN (
+        SELECT sin FROM pilot WHERE (YearsOfService > 5) AND (salary > 75000) AND sin IN
+                (SELECT sin FROM infraction WHERE demerit < 9));
+
+-- ++++++++++++++++++++
+--  Q9
+-- ++++++++++++++++++++
+SELECT firstname, lastname, sex, number FROM person LEFT OUTER JOIN phone ON person.sin = phone.sin  WHERE person.sin IN (
+        SELECT SIN FROM take WHERE date = '2019-09-01' AND shipid IN (
+                SELECT DISTINCT(shipid) FROM ship INNER JOIN schedule ON ship.routeid = schedule.routeid WHERE ship.routeid = 4 AND stopid IN
+                        (SELECT stopid FROM stop WHERE (siname = 'Jedi Temple')) AND  schedule.date = '2019-09-01'));
+
+-- ++++++++++++++++++++
+--  Q10
+-- +++++++++++++++++++
+
+SELECT routeid, sname, arrivaltime FROM schedule
+INNER JOIN stop ON schedule.stopid = stop.stopid
+WHERE schedule.stopid IN (
+        SELECT stopid FROM stop WHERE siname = 'Senate District')
+AND arrivaltime BETWEEN '16:00:00' AND '18:00:00' ;
+
+-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+-- END
+-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

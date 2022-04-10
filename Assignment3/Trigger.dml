@@ -1,0 +1,71 @@
+-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+-- CSC 343H5S: Lab 4
+-- Winter 2022 | University of Toronto Mississauga
+-- SKELETON FILE FOR TRIGGER/FUNCTION
+-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+-- ***** DO NOT CHANGE THE FORMAT *****
+-- ***** YOU MAY ONLY ADD WHERE *****
+-- *****  IT INDICATES TO DO SO *****
+
+-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+-- PREAMBLE
+-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+-- Parter 1's Name: [Daleep Singh]
+-- Partner 1's Student Number: [1001699432]
+-- Partner 1's UtorID: [singhd32]
+
+-- Parter 2's Name: [Sharon Alex]
+-- Partner 2's Student Number: [1003854206]
+-- Partner 2's UtorID: [alexshar]
+
+-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+-- DDL Additions
+-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+DROP TABLE IF EXISTS Earnings;
+DROP TRIGGER IF EXISTS insert_passenger_fare_trigger ON Take;
+DROP FUNCTION IF EXISTS insert_passenger_fare;
+CREATE TABLE IF NOT EXISTS Earnings(
+    Type varchar(20) NOT NULL, 
+    TotalEarnings decimal(10,2)
+);
+
+-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+-- BEGIN
+-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+-- ++++++++++++++++++++
+--  Function
+-- ++++++++++++++++++++
+CREATE OR REPLACE FUNCTION insert_passenger_fare()
+	RETURNS TRIGGER AS $insert_passenger_fare_trigger$
+	BEGIN
+
+		--If (type,fee) tuple in earnings then sum up the new fee additions for that type. 
+		IF (SELECT type FROM passenger WHERE sin IN (SELECT sin FROM take WHERE sin = NEW.sin)) IN (select type from earnings)  
+		THEN UPDATE Earnings SET totalearnings = totalearnings + 
+			(SELECT fee FROM fare WHERE type IN (SELECT type FROM passenger WHERE sin IN (SELECT sin FROM take WHERE sin = NEW.sin))) 
+			WHERE  Earnings.type = (SELECT type FROM passenger WHERE sin IN (SELECT sin FROM take WHERE sin = NEW.sin)); 
+		
+		END IF;
+
+		--If (type,fee) tuple not in earnings then insert it.
+		IF (SELECT type FROM passenger WHERE sin IN (SELECT sin FROM take WHERE sin = NEW.sin)) NOT IN (select type from earnings)
+		THEN INSERT INTO Earnings VALUES((SELECT type FROM passenger WHERE sin IN (SELECT sin FROM take WHERE sin = NEW.sin)),
+			 (SELECT fee FROM fare WHERE type IN (SELECT type FROM passenger WHERE sin IN (SELECT sin FROM take WHERE sin = NEW.sin)))); 
+		END IF;
+		
+		RETURN NEW;
+	END;
+$insert_passenger_fare_trigger$ LANGUAGE PLPGSQL;
+-- ++++++++++++++++++++
+--  Trigger
+-- ++++++++++++++++++++
+
+CREATE TRIGGER insert_passenger_fare_trigger
+AFTER INSERT ON take
+FOR EACH ROW EXECUTE PROCEDURE insert_passenger_fare();
+
+
+-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+-- END
+-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
